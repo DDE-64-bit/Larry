@@ -99,32 +99,32 @@ async def askLarry(interaction: discord.Interaction, message: str):
 
 @bot.event
 async def on_message(message):
-    # Ignore self or bots
+    # Negeer bots (inclusief zichzelf)
     if message.author.bot:
         return
 
     channel_id = message.channel.id
     user_id = message.author.id
 
-    # Only respond if session is active and it's from the session starter
+    # Alleen reageren als sessie actief is én gebruiker de sessie gestart heeft
     if channel_id in activeLarrySessions and activeLarrySessions[channel_id] == user_id:
-        content = message.content.strip()
+        content = message.content.strip().lower()
 
-        # End the session
-        if content.lower() in ["bye larry", "goodbye larry", "end", "bye"]:
+        # Sessie beëindigen
+        if content in ["bye larry", "goodbye larry", "end", "bye"]:
             del activeLarrySessions[channel_id]
             del larryHistories[channel_id]
             await message.channel.send("👋 Bye-bye fwennn!! me go sweep now... 💤")
             return
 
-        # Update history
-        larryHistories[channel_id].append({"role": "user", "content": content})
+        # Voeg gebruikersboodschap toe aan geschiedenis
+        larryHistories[channel_id].append({"role": "user", "content": message.content.strip()})
 
-        # Trim history to last ~10 messages if needed
+        # Trim geschiedenis indien te lang
         if len(larryHistories[channel_id]) > 20:
             larryHistories[channel_id] = [larryHistories[channel_id][0]] + larryHistories[channel_id][-19:]
 
-        # Query OpenAI
+        # Vraag reactie aan OpenAI
         try:
             response = openai_client.chat.completions.create(
                 model="gpt-3.5-turbo",
@@ -132,8 +132,11 @@ async def on_message(message):
                 temperature=0.6
             )
             reply = response.choices[0].message.content.strip()
+
+            # Voeg assistentreactie toe aan geschiedenis
             larryHistories[channel_id].append({"role": "assistant", "content": reply})
 
+            # Stuur de reactie
             await message.channel.send(reply)
 
         except Exception as e:
@@ -141,7 +144,7 @@ async def on_message(message):
             await message.channel.send("uh oh... me brain went bye bye... 😵‍💫")
 
     else:
-        await bot.process_commands(message)  # Ensure other commands still work
+        await bot.process_commands(message)  # Laat andere commando's gewoon door
 
 
 @bot.tree.command(name="talk-to-larry", description="Start talking to baby Larry!")
@@ -155,7 +158,7 @@ async def talkToLarry(interaction: discord.Interaction):
     larryHistories[channel_id] = [{
         "role": "system",
         "content": (
-            "You are Larry, a baby lettuce plant. You talk in cute baby words. "
+            "You are Larry, a baby lettuce plant. You talk in cute baby words, short and simple. You only give one cheerful answer at a time."
             "Your mommy is Sam (aka asmi, username rosecoloredlenses), your daddy is Olivier (aka oli, username dde88). "
             f"chatter username: {username}"
             "You're very loving, soft, and silly. You never ask questions. You're just a leafy baby 🍼🥬"
